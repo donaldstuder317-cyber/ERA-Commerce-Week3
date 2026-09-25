@@ -283,6 +283,34 @@ app.post("/reviews", authenticateToken, async (req, res) =>{
     }
 });
 
+// GET /reports/sales --admin_only
+app.get("/reports/sales", authenticateToken, authorizeRole("admin"), (req, res) =>{
+    const sql = "SELECT COUNT(*) AS total_orders, SUM(total_amount) AS total_revenue, AVG(total_amount) AS average_order_value, MAX(total_amount) AS highest_order, MIN(total_amount) AS lowest_order FROM orders";
+    db.query(sql, (err, results) =>{
+        if(err) return res.status(500).json({message: "Server Error"});
+        res.json(results[0]);
+    });
+});
+
+// GET /reports/top-products --admin_only
+app.get("/reports/top-products", authenticateToken, authorizeRole("admin"), (req, res) =>{
+    const sql = "SELECT p.id, p.name AS product_name, SUM(oi.quantity)  AS total_sold, SUM(oi.subtotal)  AS total_revenue FROM order_items oi INNER JOIN products p ON p.id = oi.product_id GROUP BY p.id, p.name ORDER BY total_sold DESC LIMIT 10";
+    db.query(sql, (err, results) =>{
+        if(err) return res.status(500).json({message: "Server Error"});
+        res.json(results);
+   });
+});
+
+// GET /inventory --Returns products with a stock status flag
+
+app.get("/inventory", authenticateToken, authorizeRole("admin"), (req, res) =>{
+    const sql = "SELECT p.id, p.name, p.stock_quantity, c.name AS category_name, CASE WHEN p.stock_quantity > 10 THEN 'in_stock' WHEN p.stock_quantity > 0 THEN 'low_stock' ELSE 'out_of_stock' END AS stock_status FROM products p INNER JOIN categories c ON c.id = p.category_id ORDER BY p.stock_quantity ASC";
+    db.query(sql, (err, results) =>{
+        if(err) return res.status(500).json({message: "Server Error"});
+        res.json(results);
+    });
+});
+
 // GET /categories
 app.get("/categories", authenticateToken, (req,res) => {
     const sql = "SELECT c.id, c.name, c.description, COUNT(p.id) AS product_count FROM categories c LEFT JOIN products p ON p.category_id = c.id GROUP BY c.id, c.name, c.description ORDER BY c.id ASC";
